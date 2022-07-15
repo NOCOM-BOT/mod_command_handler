@@ -1,0 +1,33 @@
+{
+  "name": "@nocom_bot/mod_command_handler",
+  "version": "0.0.1",
+  "description": "Command handler for NOCOM_BOT.",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NOCOM-BOT/mod_command_handler.git"
+  },
+  "keywords": [
+    "nocom",
+    "bot",
+    "chat"
+  ],
+  "author": "BadAimWeeb",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NOCOM-BOT/mod_command_handler/issues"
+  },
+  "homepage": "https://github.com/NOCOM-BOT/mod_command_handler#readme",
+  "devDependencies": {
+    "@tsconfig/node18": "^1.0.1",
+    "@types/node": "^18.0.0",
+    "typescript": "^4.7.4"
+  },
+  "dependencies": {},
+  "type": "module"
+}
