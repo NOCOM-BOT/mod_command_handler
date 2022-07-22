@@ -114,7 +114,7 @@ cmc.on("api:cmd_list", (call_from: string, data: any, callback: (error?: any, da
 });
 
 let randomAPIKey = crypto.randomBytes(48).toString("hex");
-cmc.on(`api:${randomAPIKey}`, (call_from: string, data: {
+cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
     calledFrom: string;
     eventName: string;
     eventData: any;
@@ -133,6 +133,8 @@ cmc.on(`api:${randomAPIKey}`, (call_from: string, data: {
             }[],
             interfaceHandlerName: string,
             interfaceID: number,
+            messageID: string,
+            channelID: string,
             additionalInterfaceData?: any
         };
 
@@ -168,8 +170,8 @@ cmc.on(`api:${randomAPIKey}`, (call_from: string, data: {
 
             // Resolve pointer
             let target = db_cmd
-                [default_db_cmd[cmd].pointer.split(":")[0]]
-                [default_db_cmd[cmd].pointer.split(":")[1]];
+            [default_db_cmd[cmd].pointer.split(":")[0]]
+            [default_db_cmd[cmd].pointer.split(":")[1]];
 
             if (target) {
                 pointed_cmd = {
@@ -202,8 +204,53 @@ cmc.on(`api:${randomAPIKey}`, (call_from: string, data: {
 
         if (!pointed_cmd) return;
 
+        // Get module responsible for the namespace
+        let mInfo = await cmc.callAPI("core", "get_plugin_namespace_info", {
+            namespace: pointed_cmd.namespace
+        }) as (({
+            exist: true;
+            pluginName: string;
+            version: string;
+            author: string;
+            resolver: string;
+        }) | ({ exist: false }));
+
         // Call command
-        
+        if (mInfo.exist) {
+            let resp = (await cmc.callAPI(mInfo.resolver, "plugin_call", {
+                namespace: pointed_cmd.namespace,
+                funcName: pointed_cmd.funcName,
+                args: [{
+                    cmd: pointed_cmd.command,
+                    args: args,
+                    attachments: msg.attachments,
+                    messageID: msg.messageID,
+                    channelID: msg.channelID,
+                    originalContent: msg.content,
+                    prefix: "",
+                    additionalInterfaceData: msg.additionalInterfaceData
+                }]
+            }));
+
+            if (resp.exist && resp.data) {
+                let data = resp.data as {
+                    content: string,
+                    attachments?: {
+                        filename: string,
+                        url: string
+                    }[],
+                    additionalInterfaceData: any
+                };
+
+                await cmc.callAPI(call_from, "send_message", {
+                    content: data.content,
+                    attachments: data.attachments,
+                    channelID: msg.channelID,
+                    replyMessageID: msg.messageID,
+                    additionalInterfaceData: data.additionalInterfaceData
+                });
+            }
+        }
     }
 });
 
