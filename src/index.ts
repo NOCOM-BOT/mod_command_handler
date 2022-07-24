@@ -1,7 +1,7 @@
 const prefix = "/";
 
-import CMComm from "./CMC";
-import Logger from "./Logger";
+import CMComm from "./CMC.js";
+import Logger from "./Logger.js";
 
 import crypto from "node:crypto";
 
@@ -263,5 +263,5 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
 
 cmc.callAPI("core", "register_event_hook", {
     callbackFunction: randomAPIKey,
-    event: "interface_message"
+    eventName: "interface_message"
 });
