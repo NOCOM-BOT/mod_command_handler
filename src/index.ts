@@ -243,6 +243,7 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                 };
 
                 await cmc.callAPI(call_from, "send_message", {
+                    interfaceID: msg.interfaceID,
                     content: data.content,
                     attachments: data.attachments,
                     channelID: msg.channelID,
