@@ -1,3 +1,5 @@
+const prefix = "/";
+
 import CMComm from "./CMC";
 import Logger from "./Logger";
 
@@ -138,118 +140,122 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
             additionalInterfaceData?: any
         };
 
-        // Parse msg.content: split command and args
-        // Note: content inside "" is considered as a single argument
-        let args = msg.content
-            .replace((/”/g), "\"")
-            .replace((/“/g), "\"")
-            .split(/((?:"[^"\\]*(?:\\[\S\s][^"\\]*)*"|'[^'\\]*(?:\\[\S\s][^'\\]*)*'|\/[^/\\]*(?:\\[\S\s][^/\\]*)*\/[gimy]*(?=\s|$)|(?:\\\s|\S))+)(?=\s|$)/)
-            .filter(function (el) {
-                return !(el == null || el == "" || el == " " || !el.replace(/\s/g, '')
-                    .length);
-            })
-            .map(function (z) {
-                return z.replace(/"/g, "");
-            });
+        if (msg.content.startsWith(prefix)) {
+            let c = msg.content.substring(prefix.length);
 
-        let cmd = args.shift();
-        if (!cmd) return;
+            // Parse msg.content: split command and args
+            // Note: content inside "" is considered as a single argument
+            let args = c
+                .replace((/”/g), "\"")
+                .replace((/“/g), "\"")
+                .split(/((?:"[^"\\]*(?:\\[\S\s][^"\\]*)*"|'[^'\\]*(?:\\[\S\s][^'\\]*)*'|\/[^/\\]*(?:\\[\S\s][^/\\]*)*\/[gimy]*(?=\s|$)|(?:\\\s|\S))+)(?=\s|$)/)
+                .filter(function (el) {
+                    return !(el == null || el == "" || el == " " || !el.replace(/\s/g, '')
+                        .length);
+                })
+                .map(function (z) {
+                    return z.replace(/"/g, "");
+                });
 
-        let pointed_cmd: {
-            funcName: string;
-            funcDescAPI: string;
-            namespace: string;
-            command: string;
-        } | undefined = void 0;
-        let namespaceSplit = cmd.split(":");
-        if (namespaceSplit.length === 1) {
-            // Handle default commands
-            if (!default_db_cmd[cmd]) {
-                return;
-            }
+            let cmd = args.shift();
+            if (!cmd) return;
 
-            // Resolve pointer
-            let target = db_cmd
-            [default_db_cmd[cmd].pointer.split(":")[0]]
-            [default_db_cmd[cmd].pointer.split(":")[1]];
+            let pointed_cmd: {
+                funcName: string;
+                funcDescAPI: string;
+                namespace: string;
+                command: string;
+            } | undefined = void 0;
+            let namespaceSplit = cmd.split(":");
+            if (namespaceSplit.length === 1) {
+                // Handle default commands
+                if (!default_db_cmd[cmd]) {
+                    return;
+                }
 
-            if (target) {
+                // Resolve pointer
+                let target = db_cmd
+                [default_db_cmd[cmd].pointer.split(":")[0]]
+                [default_db_cmd[cmd].pointer.split(":")[1]];
+
+                if (target) {
+                    pointed_cmd = {
+                        funcName: target.funcName,
+                        funcDescAPI: target.funcDescAPI,
+                        namespace: default_db_cmd[cmd].pointer.split(":")[0],
+                        command: default_db_cmd[cmd].pointer.split(":")[1]
+                    };
+                }
+            } else {
+                // Handle namespaced commands
+                let namespace = namespaceSplit[0];
+                let cmd = namespaceSplit[1];
+                if (!db_cmd[namespace]) {
+                    return;
+                }
+
+                if (!db_cmd[namespace][cmd]) {
+                    return;
+                }
+
+                let target = db_cmd[namespace][cmd];
                 pointed_cmd = {
                     funcName: target.funcName,
                     funcDescAPI: target.funcDescAPI,
-                    namespace: default_db_cmd[cmd].pointer.split(":")[0],
-                    command: default_db_cmd[cmd].pointer.split(":")[1]
+                    namespace: namespace,
+                    command: cmd
                 };
             }
-        } else {
-            // Handle namespaced commands
-            let namespace = namespaceSplit[0];
-            let cmd = namespaceSplit[1];
-            if (!db_cmd[namespace]) {
-                return;
-            }
 
-            if (!db_cmd[namespace][cmd]) {
-                return;
-            }
+            if (!pointed_cmd) return;
 
-            let target = db_cmd[namespace][cmd];
-            pointed_cmd = {
-                funcName: target.funcName,
-                funcDescAPI: target.funcDescAPI,
-                namespace: namespace,
-                command: cmd
-            };
-        }
+            // Get module responsible for the namespace
+            let mInfo = await cmc.callAPI("core", "get_plugin_namespace_info", {
+                namespace: pointed_cmd.namespace
+            }) as (({
+                exist: true;
+                pluginName: string;
+                version: string;
+                author: string;
+                resolver: string;
+            }) | ({ exist: false }));
 
-        if (!pointed_cmd) return;
+            // Call command
+            if (mInfo.exist) {
+                let resp = (await cmc.callAPI(mInfo.resolver, "plugin_call", {
+                    namespace: pointed_cmd.namespace,
+                    funcName: pointed_cmd.funcName,
+                    args: [{
+                        cmd: pointed_cmd.command,
+                        args: args,
+                        attachments: msg.attachments,
+                        messageID: msg.messageID,
+                        channelID: msg.channelID,
+                        originalContent: msg.content,
+                        prefix: "/",
+                        additionalInterfaceData: msg.additionalInterfaceData
+                    }]
+                }));
 
-        // Get module responsible for the namespace
-        let mInfo = await cmc.callAPI("core", "get_plugin_namespace_info", {
-            namespace: pointed_cmd.namespace
-        }) as (({
-            exist: true;
-            pluginName: string;
-            version: string;
-            author: string;
-            resolver: string;
-        }) | ({ exist: false }));
+                if (resp.exist && resp.data) {
+                    let data = resp.data as {
+                        content: string,
+                        attachments?: {
+                            filename: string,
+                            url: string
+                        }[],
+                        additionalInterfaceData: any
+                    };
 
-        // Call command
-        if (mInfo.exist) {
-            let resp = (await cmc.callAPI(mInfo.resolver, "plugin_call", {
-                namespace: pointed_cmd.namespace,
-                funcName: pointed_cmd.funcName,
-                args: [{
-                    cmd: pointed_cmd.command,
-                    args: args,
-                    attachments: msg.attachments,
-                    messageID: msg.messageID,
-                    channelID: msg.channelID,
-                    originalContent: msg.content,
-                    prefix: "",
-                    additionalInterfaceData: msg.additionalInterfaceData
-                }]
-            }));
-
-            if (resp.exist && resp.data) {
-                let data = resp.data as {
-                    content: string,
-                    attachments?: {
-                        filename: string,
-                        url: string
-                    }[],
-                    additionalInterfaceData: any
-                };
-
-                await cmc.callAPI(call_from, "send_message", {
-                    interfaceID: msg.interfaceID,
-                    content: data.content,
-                    attachments: data.attachments,
-                    channelID: msg.channelID,
-                    replyMessageID: msg.messageID,
-                    additionalInterfaceData: data.additionalInterfaceData
-                });
+                    await cmc.callAPI(call_from, "send_message", {
+                        interfaceID: msg.interfaceID,
+                        content: data.content,
+                        attachments: data.attachments,
+                        channelID: msg.channelID,
+                        replyMessageID: msg.messageID,
+                        additionalInterfaceData: data.additionalInterfaceData
+                    });
+                }
             }
         }
     }
