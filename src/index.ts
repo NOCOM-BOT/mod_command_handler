@@ -239,7 +239,7 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                         }]
                     }));
 
-                    if (resp.exist && resp.data) {
+                    if (resp.exist && resp.data && resp.data.returnData) {
                         let rtData = resp.data as {
                             content: string,
                             attachments?: {
