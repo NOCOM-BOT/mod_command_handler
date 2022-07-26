@@ -48,14 +48,14 @@ cmc.on("api:register_cmd", (call_from: string, data: {
     }
 
     if (default_db_cmd[data.command]) {
-        logger.warn(`Command ${data.namespace}:${data.command} is conflicting with ${default_db_cmd[data.command].pointer} (registered as default). This command will only be called using namespaces.`);
+        logger.warn("cmdhandler", `Command ${data.namespace}:${data.command} is conflicting with ${default_db_cmd[data.command].pointer} (registered as default). This command will only be called using namespaces.`);
     } else {
         default_db_cmd[data.command] = {
             pointer: `${data.namespace}:${data.command}`
         }
     }
 
-    logger.info(`Command ${data.namespace}:${data.command} registered by ${call_from}.`);
+    logger.info("cmdhandler", `Command ${data.namespace}:${data.command} registered by ${call_from}.`);
 
     callback(null, {
         success: true
@@ -84,7 +84,7 @@ cmc.on("api:unregister_cmd", (call_from: string, data: {
 
     delete db_cmd[data.namespace][data.command];
     delete default_db_cmd[data.command];
-    logger.info(`Command ${data.namespace}:${data.command} unregistered by ${call_from}.`);
+    logger.info("cmdhandler", `Command ${data.namespace}:${data.command} unregistered by ${call_from}.`);
     callback(null, {
         success: true
     });
@@ -238,7 +238,7 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                 }));
 
                 if (resp.exist && resp.data) {
-                    let data = resp.data as {
+                    let rtData = resp.data as {
                         content: string,
                         attachments?: {
                             filename: string,
@@ -247,13 +247,13 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                         additionalInterfaceData: any
                     };
 
-                    await cmc.callAPI(call_from, "send_message", {
+                    await cmc.callAPI(data.calledFrom, "send_message", {
                         interfaceID: msg.interfaceID,
-                        content: data.content,
-                        attachments: data.attachments,
+                        content: rtData.content,
+                        attachments: rtData.attachments,
                         channelID: msg.channelID,
                         replyMessageID: msg.messageID,
-                        additionalInterfaceData: data.additionalInterfaceData
+                        additionalInterfaceData: rtData.additionalInterfaceData
                     });
                 }
             }
