@@ -35,7 +35,7 @@ cmc.on("api:register_cmd", (call_from: string, data: {
     }
 
     if (db_cmd[data.namespace][data.command]) {
-        callback({
+        callback("Command already registered", {
             success: false,
             error: "Command already registered"
         });
@@ -57,7 +57,7 @@ cmc.on("api:register_cmd", (call_from: string, data: {
 
     logger.info(`Command ${data.namespace}:${data.command} registered by ${call_from}.`);
 
-    callback({
+    callback(null, {
         success: true
     });
 });
@@ -67,7 +67,7 @@ cmc.on("api:unregister_cmd", (call_from: string, data: {
     command: string;
 }, callback: (error?: any, data?: any) => void) => {
     if (!db_cmd[data.namespace]) {
-        callback({
+        callback("Namespace not found", {
             success: false,
             error: "Namespace not found"
         });
@@ -75,7 +75,7 @@ cmc.on("api:unregister_cmd", (call_from: string, data: {
     }
 
     if (!db_cmd[data.namespace][data.command]) {
-        callback({
+        callback("Command not found", {
             success: false,
             error: "Command not found"
         });
@@ -85,7 +85,7 @@ cmc.on("api:unregister_cmd", (call_from: string, data: {
     delete db_cmd[data.namespace][data.command];
     delete default_db_cmd[data.command];
     logger.info(`Command ${data.namespace}:${data.command} unregistered by ${call_from}.`);
-    callback({
+    callback(null, {
         success: true
     });
 });
@@ -109,7 +109,7 @@ cmc.on("api:cmd_list", (call_from: string, data: any, callback: (error?: any, da
         }
     }
 
-    callback({
+    callback(null, {
         commands: cmds,
         count: cmds.length
     });
@@ -122,7 +122,7 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
     eventData: any;
 }, callback: (error?: any, data?: any) => void) => {
     if (call_from != "core") {
-        callback(false);
+        callback(null, false);
         return;
     }
 
