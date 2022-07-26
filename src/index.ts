@@ -210,51 +210,54 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
             if (!pointed_cmd) return;
 
             // Get module responsible for the namespace
-            let mInfo = await cmc.callAPI("core", "get_plugin_namespace_info", {
+            let mInfoRaw = await cmc.callAPI("core", "get_plugin_namespace_info", {
                 namespace: pointed_cmd.namespace
-            }) as (({
-                exist: true;
-                pluginName: string;
-                version: string;
-                author: string;
-                resolver: string;
-            }) | ({ exist: false }));
+            });
+            if (mInfoRaw.exist) {
+                let mInfo = mInfoRaw.data as (({
+                    exist: true;
+                    pluginName: string;
+                    version: string;
+                    author: string;
+                    resolver: string;
+                }) | ({ exist: false }));
 
-            // Call command
-            if (mInfo.exist) {
-                let resp = (await cmc.callAPI(mInfo.resolver, "plugin_call", {
-                    namespace: pointed_cmd.namespace,
-                    funcName: pointed_cmd.funcName,
-                    args: [{
-                        cmd: pointed_cmd.command,
-                        args: args,
-                        attachments: msg.attachments,
-                        messageID: msg.messageID,
-                        channelID: msg.channelID,
-                        originalContent: msg.content,
-                        prefix: "/",
-                        additionalInterfaceData: msg.additionalInterfaceData
-                    }]
-                }));
+                // Call command
+                if (mInfo.exist) {
+                    let resp = (await cmc.callAPI(mInfo.resolver, "plugin_call", {
+                        namespace: pointed_cmd.namespace,
+                        funcName: pointed_cmd.funcName,
+                        args: [{
+                            cmd: pointed_cmd.command,
+                            args: args,
+                            attachments: msg.attachments,
+                            messageID: msg.messageID,
+                            channelID: msg.channelID,
+                            originalContent: msg.content,
+                            prefix: "/",
+                            additionalInterfaceData: msg.additionalInterfaceData
+                        }]
+                    }));
 
-                if (resp.exist && resp.data) {
-                    let rtData = resp.data as {
-                        content: string,
-                        attachments?: {
-                            filename: string,
-                            url: string
-                        }[],
-                        additionalInterfaceData: any
-                    };
+                    if (resp.exist && resp.data) {
+                        let rtData = resp.data as {
+                            content: string,
+                            attachments?: {
+                                filename: string,
+                                url: string
+                            }[],
+                            additionalInterfaceData: any
+                        };
 
-                    await cmc.callAPI(data.calledFrom, "send_message", {
-                        interfaceID: msg.interfaceID,
-                        content: rtData.content,
-                        attachments: rtData.attachments,
-                        channelID: msg.channelID,
-                        replyMessageID: msg.messageID,
-                        additionalInterfaceData: rtData.additionalInterfaceData
-                    });
+                        await cmc.callAPI(data.calledFrom, "send_message", {
+                            interfaceID: msg.interfaceID,
+                            content: rtData.content,
+                            attachments: rtData.attachments,
+                            channelID: msg.channelID,
+                            replyMessageID: msg.messageID,
+                            additionalInterfaceData: rtData.additionalInterfaceData
+                        });
+                    }
                 }
             }
         }
