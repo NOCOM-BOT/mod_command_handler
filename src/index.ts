@@ -24,7 +24,16 @@ let default_db_cmd: {
     }
 } = {};
 
-cmc.on("api:register_cmd", (call_from: string, data: {
+// Get persistent data first
+let call = await cmc.callAPI("core", "get_persistent_data", null);
+if (call.exist) {
+    let d = call.data;
+
+    db_cmd = d.db_cmd;
+    default_db_cmd = d.default_db_cmd;
+}
+
+cmc.on("api:register_cmd", async (call_from: string, data: {
     namespace: string;
     command: string;
     funcName: string;
@@ -55,14 +64,19 @@ cmc.on("api:register_cmd", (call_from: string, data: {
         }
     }
 
-    logger.info("cmdhandler", `Command ${data.namespace}:${data.command} registered by ${call_from}.`);
+    await cmc.callAPI("core", "set_persistent_data", {
+        db_cmd: db_cmd,
+        default_db_cmd: default_db_cmd
+    });
+
+    logger.info("cmdhandler", `Command ${data.namespace}:${data.command} registered by module ID ${call_from}.`);
 
     callback(null, {
         success: true
     });
 });
 
-cmc.on("api:unregister_cmd", (call_from: string, data: {
+cmc.on("api:unregister_cmd", async (call_from: string, data: {
     namespace: string;
     command: string;
 }, callback: (error?: any, data?: any) => void) => {
@@ -84,6 +98,12 @@ cmc.on("api:unregister_cmd", (call_from: string, data: {
 
     delete db_cmd[data.namespace][data.command];
     delete default_db_cmd[data.command];
+
+    await cmc.callAPI("core", "set_persistent_data", {
+        db_cmd: db_cmd,
+        default_db_cmd: default_db_cmd
+    });
+
     logger.info("cmdhandler", `Command ${data.namespace}:${data.command} unregistered by ${call_from}.`);
     callback(null, {
         success: true
