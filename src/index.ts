@@ -29,8 +29,10 @@ let call = await cmc.callAPI("core", "get_persistent_data", null);
 if (call.exist) {
     let d = call.data;
 
-    db_cmd = d.db_cmd;
-    default_db_cmd = d.default_db_cmd;
+    if (typeof d === "object") {
+        db_cmd = d.db_cmd;
+        default_db_cmd = d.default_db_cmd;
+    }
 }
 
 cmc.on("api:register_cmd", async (call_from: string, data: {
