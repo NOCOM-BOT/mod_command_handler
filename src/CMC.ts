@@ -7,6 +7,10 @@ export default class CMComm extends EventEmitter {
         [nonce: string]: (data: any) => void
     } = {};
 
+    config: {
+        language?: string
+    } = {}
+
     constructor() {
         super();
 
@@ -18,6 +22,7 @@ export default class CMComm extends EventEmitter {
             config: any
         }) => {
             if (msg.protocol_version === "1") {
+                this.config = msg.config;
                 process.send?.({
                     type: "handshake_success",
                     module: "cmd_handler",

@@ -35,6 +35,23 @@ if (call.exist) {
     }
 }
 
+// Get default database
+let defaultDB = {
+    id: 0,
+    resolver: ""
+};
+call = await cmc.callAPI("core", "get_default_db", null);
+if (call.exist) {
+    let d = call.data;
+
+    if (typeof d === "object") {
+        defaultDB = {
+            id: d.databaseID,
+            resolver: d.resolver
+        }
+    }
+}
+
 cmc.on("api:register_cmd", async (call_from: string, data: {
     namespace: string;
     command: string;
@@ -155,10 +172,22 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                 filename: string,
                 url: string
             }[],
+            mentions: {
+                [formattedUserID: string]: {
+                    start: number,
+                    length: number
+                }
+            },
             interfaceHandlerName: string,
             interfaceID: number,
             messageID: string,
+            formattedMessageID: string,
             channelID: string,
+            formattedChannelID: string,
+            guildID: string,
+            formattedGuildID: string,
+            senderID: string,
+            formattedSenderID: string,
             additionalInterfaceData?: any
         };
 
@@ -250,13 +279,30 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                         namespace: pointed_cmd.namespace,
                         funcName: pointed_cmd.funcName,
                         args: [{
+                            interfaceID: msg.interfaceID,
+                            interfaceHandlerName: msg.interfaceHandlerName,
+
                             cmd: pointed_cmd.command,
                             args: args,
                             attachments: msg.attachments,
+                            mentions: msg.mentions,
+
                             messageID: msg.messageID,
+                            formattedMessageID: msg.formattedMessageID,
                             channelID: msg.channelID,
+                            formattedChannelID: msg.formattedChannelID,
+                            guildID: msg.guildID,
+                            formattedGuildID: msg.formattedGuildID,
+                            senderID: msg.senderID,
+                            formattedSenderID: msg.formattedSenderID,
+
                             originalContent: msg.content,
                             prefix: "/",
+                            language: (await getLang({
+                                formattedUserID: msg.formattedSenderID,
+                                formattedChannelID: msg.formattedChannelID,
+                                formattedGuildID: msg.formattedGuildID
+                            })).language,
                             additionalInterfaceData: msg.additionalInterfaceData
                         }]
                     }));
@@ -285,6 +331,136 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
         }
     }
 });
+
+cmc.on(
+    "api:get_default_lang",
+    (call_from: string, data: any, callback: (error?: any, data?: any) => void) => {
+        callback(null, {
+            language: cmc.config.language ?? "en_US"
+        });
+    }
+);
+
+cmc.on(
+    "api:get_lang",
+    async (call_from: string, data: (
+        {
+            formattedUserID?: string,
+            formattedChannelID?: string,
+            formattedGuildID?: string
+        }
+    ), callback: (error?: any, data?: any) => void) => {
+        let lang = await getLang(data);
+
+        callback(null, {
+            lang: lang.language,
+            isDefault: lang.isDefault,
+            isInterfaceGiven: lang.isInterfaceGiven,
+            isOverriden: lang.isOverriden
+        });
+    }
+);
+
+cmc.on("api:set_lang", async (call_from: string, data: (
+    {
+        formattedUserID?: string,
+        formattedChannelID?: string,
+        formattedGuildID?: string,
+        lang: string
+    }
+), callback: (error?: any, data?: any) => void) => {
+    if (data.formattedUserID) {
+        await cmc.callAPI(defaultDB.resolver, "set_data", {
+            databaseID: defaultDB.id,
+            table: "command_handler_lang_o",
+            key: data.formattedGuildID,
+            value: data.lang
+        });
+    }
+
+    if (data.formattedChannelID) {
+        await cmc.callAPI(defaultDB.resolver, "set_data", {
+            databaseID: defaultDB.id,
+            table: "command_handler_lang_o",
+            key: data.formattedChannelID,
+            value: data.lang
+        });
+    }
+
+    if (data.formattedGuildID) {
+        await cmc.callAPI(defaultDB.resolver, "set_data", {
+            databaseID: defaultDB.id,
+            table: "command_handler_lang_o",
+            key: data.formattedGuildID,
+            value: data.lang
+        });
+    }
+
+    callback(null, {
+        success: true
+    });
+});
+
+async function getLang(data: {
+    formattedUserID?: string,
+    formattedChannelID?: string,
+    formattedGuildID?: string
+}) {
+    let lang = cmc.config.language ?? "en_US";
+    let t = 0;
+
+    if (data.formattedGuildID) {
+        // Check in database
+        let langDB = await cmc.callAPI(defaultDB.resolver, "get_data", {
+            databaseID: defaultDB.id,
+            table: "command_handler_lang_o",
+            key: data.formattedGuildID
+        });
+        if (langDB.exist && langDB.data?.success) {
+            lang = langDB.data?.data ?? lang;
+            if (langDB.data?.data) {
+                t = 1;
+            }
+        }
+    }
+
+    if (data.formattedChannelID) {
+        // Check in database
+        let langDB = await cmc.callAPI(defaultDB.resolver, "get_data", {
+            databaseID: defaultDB.id,
+            table: "command_handler_lang_o",
+            key: data.formattedChannelID
+        });
+        if (langDB.exist && langDB.data?.success) {
+            lang = langDB.data?.data ?? lang;
+            if (langDB.data?.data) {
+                t = 1;
+            }
+        }
+    }
+
+    if (data.formattedUserID) {
+        // Check in database
+        let langDB = await cmc.callAPI(defaultDB.resolver, "get_data", {
+            databaseID: defaultDB.id,
+            table: "command_handler_lang_o",
+            key: data.formattedUserID
+        });
+        if (langDB.exist && langDB.data?.success) {
+            lang = langDB.data?.data ?? lang;
+            if (langDB.data?.data) {
+                t = 1;
+            }
+        }
+    }
+
+    return {
+        language: lang,
+        isDefault: t === 0,
+        isOverriden: t === 1,
+        isInterfaceGiven: false
+    }
+}
 
 cmc.callAPI("core", "register_event_hook", {
     callbackFunction: randomAPIKey,
