@@ -13,7 +13,16 @@ let db_cmd: {
     [namespace: string]: {
         [cmd: string]: {
             funcName: string;
-            funcDescAPI: string;
+            description: {
+                fallback: string,
+                [ISOLanguageCode: string]: string
+            };
+            args: {
+                fallback: string,
+                [ISOLanguageCode: string]: string
+            };
+            argsName: string[],
+            compatibility: string[]
         }
     }
 } = {};
@@ -30,8 +39,8 @@ if (call.exist) {
     let d = call.data;
 
     if (typeof d === "object") {
-        db_cmd = d.db_cmd;
-        default_db_cmd = d.default_db_cmd;
+        db_cmd = d.db_cmd ?? {};
+        default_db_cmd = d.default_db_cmd ?? {};
     }
 }
 
@@ -56,7 +65,16 @@ cmc.on("api:register_cmd", async (call_from: string, data: {
     namespace: string;
     command: string;
     funcName: string;
-    funcDescAPI: string;
+    description: {
+        fallback: string,
+        [ISOLanguageCode: string]: string
+    };
+    args: {
+        fallback: string,
+        [ISOLanguageCode: string]: string
+    };
+    argsName?: string[];
+    compatibility?: string[];
 }, callback: (error?: any, data?: any) => void) => {
     if (!db_cmd[data.namespace]) {
         db_cmd[data.namespace] = {};
@@ -72,7 +90,10 @@ cmc.on("api:register_cmd", async (call_from: string, data: {
 
     db_cmd[data.namespace][data.command] = {
         funcName: data.funcName,
-        funcDescAPI: data.funcDescAPI
+        description: data.description ?? { fallback: "" },
+        args: data.args ?? { fallback: "" },
+        argsName: Array.isArray(data.argsName) ? data.argsName : [],
+        compatibility: Array.isArray(data.compatibility) ? data.compatibility : []
     }
 
     if (default_db_cmd[data.command]) {
@@ -86,6 +107,19 @@ cmc.on("api:register_cmd", async (call_from: string, data: {
     await cmc.callAPI("core", "set_persistent_data", {
         db_cmd: db_cmd,
         default_db_cmd: default_db_cmd
+    });
+
+    await cmc.callAPI("core", "send_event", {
+        eventName: "cmdhandler_regevent",
+        data: {
+            isRegisterEvent: true,
+            namespace: data.namespace,
+            command: data.command,
+            description: data.description ?? { fallback: "" },
+            args: data.args ?? { fallback: "" },
+            argsName: Array.isArray(data.argsName) ? data.argsName : [],
+            compatibility: Array.isArray(data.compatibility) ? data.compatibility : []
+        }
     });
 
     logger.info("cmdhandler", `Command ${data.namespace}:${data.command} registered by module ID ${call_from}.`);
@@ -123,6 +157,15 @@ cmc.on("api:unregister_cmd", async (call_from: string, data: {
         default_db_cmd: default_db_cmd
     });
 
+    await cmc.callAPI("core", "send_event", {
+        eventName: "cmdhandler_regevent",
+        data: {
+            isRegisterEvent: false,
+            namespace: data.namespace,
+            command: data.command
+        }
+    });
+
     logger.info("cmdhandler", `Command ${data.namespace}:${data.command} unregistered by ${call_from}.`);
     callback(null, {
         success: true
@@ -134,7 +177,16 @@ cmc.on("api:cmd_list", (call_from: string, data: any, callback: (error?: any, da
         namespace: string;
         command: string;
         funcName: string;
-        funcDescAPI: string;
+        description: {
+            fallback: string,
+            [ISOLanguageCode: string]: string
+        };
+        args: {
+            fallback: string,
+            [ISOLanguageCode: string]: string
+        };
+        argsName: string[];
+        compatibility: string[];
     })[] = [];
 
     for (let namespace in db_cmd) {
@@ -143,7 +195,10 @@ cmc.on("api:cmd_list", (call_from: string, data: any, callback: (error?: any, da
                 namespace,
                 command: cmd,
                 funcName: db_cmd[namespace][cmd].funcName,
-                funcDescAPI: db_cmd[namespace][cmd].funcDescAPI
+                description: db_cmd[namespace][cmd].description,
+                args: db_cmd[namespace][cmd].args,
+                argsName: db_cmd[namespace][cmd].argsName,
+                compatibility: db_cmd[namespace][cmd].compatibility
             });
         }
     }
@@ -188,8 +243,19 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
             formattedGuildID: string,
             senderID: string,
             formattedSenderID: string,
+            language?: string,
             additionalInterfaceData?: any
         };
+
+        if (msg.language) {
+            // Save to database
+            await cmc.callAPI(defaultDB.resolver, "set_data", {
+                databaseID: defaultDB.id,
+                table: "command_handler_lang_o",
+                key: msg.formattedSenderID,
+                value: msg.language
+            });
+        }
 
         if (msg.content.startsWith(prefix)) {
             let c = msg.content.substring(prefix.length);
@@ -213,7 +279,7 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
 
             let pointed_cmd: {
                 funcName: string;
-                funcDescAPI: string;
+                compatibility: string[];
                 namespace: string;
                 command: string;
             } | undefined = void 0;
@@ -232,9 +298,9 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                 if (target) {
                     pointed_cmd = {
                         funcName: target.funcName,
-                        funcDescAPI: target.funcDescAPI,
                         namespace: default_db_cmd[cmd].pointer.split(":")[0],
-                        command: default_db_cmd[cmd].pointer.split(":")[1]
+                        command: default_db_cmd[cmd].pointer.split(":")[1],
+                        compatibility: target.compatibility
                     };
                 }
             } else {
@@ -252,13 +318,18 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                 let target = db_cmd[namespace][cmd];
                 pointed_cmd = {
                     funcName: target.funcName,
-                    funcDescAPI: target.funcDescAPI,
                     namespace: namespace,
-                    command: cmd
+                    command: cmd,
+                    compatibility: target.compatibility
                 };
             }
 
             if (!pointed_cmd) return;
+            // Compatibility check
+            if (
+                pointed_cmd.compatibility.length !== 0 &&
+                pointed_cmd.compatibility.indexOf(msg.interfaceHandlerName) === -1
+            ) return;
 
             // Get module responsible for the namespace
             let mInfoRaw = await cmc.callAPI("core", "get_plugin_namespace_info", {
@@ -452,13 +523,26 @@ async function getLang(data: {
                 t = 1;
             }
         }
+
+        // Check in database for interface-given language
+        langDB = await cmc.callAPI(defaultDB.resolver, "get_data", {
+            databaseID: defaultDB.id,
+            table: "command_handler_lang_i",
+            key: data.formattedUserID
+        });
+        if (langDB.exist && langDB.data?.success) {
+            lang = langDB.data?.data ?? lang;
+            if (langDB.data?.data) {
+                t = 2;
+            }
+        }
     }
 
     return {
         language: lang,
         isDefault: t === 0,
         isOverriden: t === 1,
-        isInterfaceGiven: false
+        isInterfaceGiven: t === 2
     }
 }
 
