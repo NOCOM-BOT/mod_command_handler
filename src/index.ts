@@ -346,6 +346,15 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
 
                 // Call command
                 if (mInfo.exist) {
+                    // Check for operator status
+                    let isOperator = false;
+                    let operatorList = await cmc.callAPI("core", "get_operator_list", null);
+                    if (operatorList.exist) {
+                        if (operatorList.data.indexOf(msg.formattedSenderID) !== -1) {
+                            isOperator = true;
+                        }
+                    }
+
                     let resp = (await cmc.callAPI(mInfo.resolver, "plugin_call", {
                         namespace: pointed_cmd.namespace,
                         funcName: pointed_cmd.funcName,
@@ -374,6 +383,7 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                                 formattedChannelID: msg.formattedChannelID,
                                 formattedGuildID: msg.formattedGuildID
                             })).language,
+                            isOperator,
                             additionalInterfaceData: msg.additionalInterfaceData
                         }]
                     }));
