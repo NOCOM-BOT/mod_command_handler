@@ -417,7 +417,7 @@ cmc.on(
     "api:get_default_lang",
     (call_from: string, data: any, callback: (error?: any, data?: any) => void) => {
         callback(null, {
-            language: cmc.config?.language ?? "en_US"
+            language: cmc.config?.language ?? "en-US"
         });
     }
 );
