@@ -44,6 +44,9 @@ if (call.exist) {
     }
 }
 
+// Wait for default database
+await cmc.callAPI("core", "wait_for_default_db", null);
+
 // Get default database
 let defaultDB = {
     id: 0,
