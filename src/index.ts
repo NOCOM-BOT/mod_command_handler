@@ -246,9 +246,14 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
             formattedGuildID: string,
             senderID: string,
             formattedSenderID: string,
+            isDM: boolean,
             language?: string,
             additionalInterfaceData?: any
         };
+
+        if (cmc.config?.logMessageToConsole) {
+            logger.info(`cmdhandler[${msg.interfaceID}]`, `[${msg.interfaceHandlerName}] Message from ${msg.formattedSenderID} in ${msg.formattedChannelID} (${msg.isDM ? "DM" : "Group"}): ${msg.content}`);
+        }
 
         if (msg.language) {
             // Save to database
@@ -333,6 +338,10 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
                 pointed_cmd.compatibility.length !== 0 &&
                 pointed_cmd.compatibility.indexOf(msg.interfaceHandlerName) === -1
             ) return;
+
+            if (cmc.config?.logCommandToConsole) {
+                logger.info(`cmdhandler[${msg.interfaceID}]`, `[${msg.interfaceHandlerName}] Executing command "${pointed_cmd.namespace}:${pointed_cmd.command}" called by ${msg.formattedSenderID} in ${msg.formattedChannelID} (${msg.isDM ? "DM" : "Group"})`);
+            }
 
             // Get module responsible for the namespace
             let mInfoRaw = await cmc.callAPI("core", "get_plugin_namespace_info", {

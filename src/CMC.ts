@@ -8,7 +8,9 @@ export default class CMComm extends EventEmitter {
     } = {};
 
     config: {
-        language?: string
+        language?: string,
+        logMessageToConsole?: boolean,
+        logCommandToConsole?: boolean
     } = {}
 
     constructor() {
