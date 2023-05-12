@@ -252,7 +252,7 @@ cmc.on(`api:${randomAPIKey}`, async (call_from: string, data: {
         };
 
         if (cmc.config?.logMessageToConsole) {
-            logger.info(`cmdhandler[${msg.interfaceID}]`, `[${msg.interfaceHandlerName}] Message from ${msg.formattedSenderID} in ${msg.formattedChannelID} (${msg.isDM ? "DM" : "Group"}): ${msg.content}`);
+            logger.info(`cmdhandler[${msg.interfaceID}]`, `[${msg.interfaceHandlerName}] Message from ${msg.formattedSenderID} in ${msg.formattedChannelID} (${msg.isDM ? "DM" : "Group"}):`, msg.content, msg.attachments);
         }
 
         if (msg.language) {
